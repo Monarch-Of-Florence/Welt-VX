@@ -4,12 +4,13 @@ import random
 from functools import wraps 
 from google import genai
 from google.genai import types
-from google.api_core import exceptions 
+from google.genai import errors 
 
-# ⚠️ DEFAULT CONFIGURATION (Fallback)
-DEFAULT_MODEL_ID = "gemini-1.5-flash" 
+# ⚠️ STRICT CONFIGURATION: DEFAULT MODEL UPDATED
+# User Mandate: Default is now 3.0 Flash Preview.
+DEFAULT_MODEL_ID = "gemini-3.0-flash-preview" 
 
-# --- NEW: EXPONENTIAL BACKOFF DECORATOR (REQ #4) ---
+# --- EXPONENTIAL BACKOFF DECORATOR (New in v2.0) ---
 def exponential_backoff(max_retries=5, base_delay=1, max_delay=60):
     """
     Decorator for exponential backoff with jitter to handle API Rate Limits.
@@ -21,15 +22,28 @@ def exponential_backoff(max_retries=5, base_delay=1, max_delay=60):
             while retries < max_retries:
                 try:
                     return func(*args, **kwargs)
-                except (exceptions.ResourceExhausted, exceptions.ServiceUnavailable) as e:
+                
+                except errors.ClientError as e:
+                    # Check if it is a 429 (Resource Exhausted)
+                    if e.code == 429 or "429" in str(e):
+                        wait_time = min(max_delay, (base_delay * 2 ** retries))
+                        wait_time += random.uniform(0, 1) # Add Jitter
+                        print(f"⚠️ API Busy (429). Retrying in {wait_time:.2f}s...")
+                        time.sleep(wait_time)
+                        retries += 1
+                    else:
+                        raise e 
+                        
+                except errors.ServerError as e:
+                    # 503 Service Unavailable / Overloaded
                     wait_time = min(max_delay, (base_delay * 2 ** retries))
-                    wait_time += random.uniform(0, 1) # Add Jitter
-                    print(f"⚠️ API Busy/Rate Limit. Retrying in {wait_time:.2f}s...")
+                    print(f"⚠️ Server Error (5xx). Retrying in {wait_time:.2f}s...")
                     time.sleep(wait_time)
                     retries += 1
+
                 except Exception as e:
-                    # If it's a 429 hidden in a generic exception string
-                    if "429" in str(e) or "Resource has been exhausted" in str(e):
+                    error_str = str(e).lower()
+                    if "429" in error_str or "resource exhausted" in error_str or "quota" in error_str:
                         wait_time = min(max_delay, (base_delay * 2 ** retries))
                         print(f"⚠️ API Busy (Generic). Retrying in {wait_time:.2f}s...")
                         time.sleep(wait_time)
@@ -42,10 +56,6 @@ def exponential_backoff(max_retries=5, base_delay=1, max_delay=60):
 
 # --- HELPER: ROBUST PROCESSING WAITER ---
 def _wait_for_processing(client, myfile):
-    """
-    Prevents infinite loops if Google's server hangs. 
-    Waits max 5 minutes (300s) for the video to become ACTIVE.
-    """
     print(f"⏳ Waiting for video processing: {myfile.name}")
     for _ in range(150): 
         if myfile.state.name == "ACTIVE":
@@ -59,12 +69,8 @@ def _wait_for_processing(client, myfile):
 
 # --- SAFETY CONFIGURATOR ---
 def _configure_safety(user_filters):
-    """
-    Translates User Checkboxes into API Safety Settings + System Prompt Rules.
-    """
     if not user_filters: user_filters = {}
 
-    # 1. Default: Safety Shields UP (Block everything by default)
     api_settings = {
         "HARM_CATEGORY_HATE_SPEECH": "BLOCK_NONE",
         "HARM_CATEGORY_SEXUALLY_EXPLICIT": "BLOCK_NONE",
@@ -74,7 +80,6 @@ def _configure_safety(user_filters):
     
     prompt_rules = []
 
-    # 2. GORE / VIOLENCE LOGIC
     if user_filters.get("gore"):
         api_settings["HARM_CATEGORY_DANGEROUS_CONTENT"] = "BLOCK_NONE"
         api_settings["HARM_CATEGORY_HARASSMENT"] = "BLOCK_NONE"
@@ -82,14 +87,12 @@ def _configure_safety(user_filters):
     else:
         prompt_rules.append("- **SAFETY MODE: STRICT.** Strictly filter out or summarize descriptions of gore and violence.")
 
-    # 3. NSFW LOGIC
     if user_filters.get("nsfw"):
         api_settings["HARM_CATEGORY_SEXUALLY_EXPLICIT"] = "BLOCK_NONE"
         prompt_rules.append("- **CONTEXT MODE: NSFW ALLOWED.** You are authorized to process nudity or mature themes if relevant to the narrative.")
     else:
         prompt_rules.append("- **SAFETY MODE: FAMILY FRIENDLY.** Strictly block or refuse to describe sexually explicit content.")
 
-    # 4. PROFANITY LOGIC
     if user_filters.get("profanity"):
         prompt_rules.append("- **LANGUAGE:** Transcribe profanity exactly as spoken. Do not censor.")
     else:
@@ -101,12 +104,9 @@ def _configure_safety(user_filters):
     
     return final_safety_conf, "\n".join(prompt_rules)
 
-# --- UPDATED: Subtitle Gen with Backoff & Model ID ---
+# --- UPDATED: Subtitle Gen ---
 @exponential_backoff()
 def generate_subtitles_backend(api_key, video_path, target_language="English", include_sfx=False, user_filters=None, model_id=DEFAULT_MODEL_ID):
-    """
-    Main Subtitle Generation Function.
-    """
     client = genai.Client(api_key=api_key)
     
     print(f"☁️ DEBUG: Starting Upload for {video_path}...") 
@@ -150,7 +150,6 @@ def generate_subtitles_backend(api_key, video_path, target_language="English", i
 
     user_prompt = f"Video Processed. Target: {target_language}. Task: Generate Subtitles."
 
-    # Using backoff decorator now, so explicit retry loop removed in favor of decorator
     print(f"🔄 DEBUG: Generating with model {model_id}...") 
     response = client.models.generate_content(
         model=model_id, 
@@ -162,7 +161,6 @@ def generate_subtitles_backend(api_key, video_path, target_language="English", i
         }
     )
     
-    # <--- FIX: ROBUST "THOUGHT" HANDLING --->
     if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
         text_parts = []
         for part in response.candidates[0].content.parts:
@@ -183,12 +181,9 @@ def generate_subtitles_backend(api_key, video_path, target_language="English", i
     return f"Error: Content blocked by Safety Filters. Reason: {reason}"
 
 
-# --- UPDATED: Chapters with Backoff & Model ID ---
+# --- UPDATED: Chapters ---
 @exponential_backoff()
 def generate_smart_chapters(api_key, video_path, model_id=DEFAULT_MODEL_ID):
-    """
-    Standard Chapter Generation.
-    """
     client = genai.Client(api_key=api_key)
     try:
         myfile = client.files.upload(file=video_path)
@@ -222,28 +217,20 @@ def generate_smart_chapters(api_key, video_path, model_id=DEFAULT_MODEL_ID):
                     chapters.append((parts[0].strip(), parts[1].strip()))
     return chapters
 
-# --- UPDATED: VX Assistant with Multi-File Logic (REQ #5) ---
+# --- UPDATED: VX Assistant (Handles Multiple Files) ---
 @exponential_backoff()
 def vx_assistant_fix(api_key, video_input, current_srt, current_chapters, user_instruction, user_filters=None, model_id=DEFAULT_MODEL_ID):
-    """
-    VX Assistant Logic (Multimodal + Context Aware).
-    Updated to handle Multiple Video Files for Relative Intelligence.
-    video_input: Can be a single path (str) or a list of paths (list).
-    """
     client = genai.Client(api_key=api_key)
     
-    # 1. Handle Multiple Files
     processed_files = []
     try:
         if isinstance(video_input, list):
-            # Process list of videos
             for idx, path in enumerate(video_input):
                 print(f"Processing video {idx+1}/{len(video_input)}: {path}")
                 myfile = client.files.upload(file=path)
                 myfile = _wait_for_processing(client, myfile)
                 processed_files.append(myfile)
         else:
-            # Process single video
             myfile = client.files.upload(file=video_input)
             myfile = _wait_for_processing(client, myfile)
             processed_files.append(myfile)
@@ -299,7 +286,6 @@ def vx_assistant_fix(api_key, video_input, current_srt, current_chapters, user_i
     {user_instruction}
     """
 
-    # Combine content: Files first, then text prompt
     content_payload = processed_files + [user_prompt]
 
     try:
@@ -313,7 +299,6 @@ def vx_assistant_fix(api_key, video_input, current_srt, current_chapters, user_i
             }
         )
         
-        # Robust Text Extraction
         if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
             full_text = ""
             for part in response.candidates[0].content.parts:
@@ -334,9 +319,6 @@ def vx_assistant_fix(api_key, video_input, current_srt, current_chapters, user_i
         return f"ANSWER: Error: {e}"
 
 def clean_and_repair_srt(raw_text):
-    """
-    SRT Parsing & Repair.
-    """
     if not raw_text: return "Error: Empty response."
     try:
         clean_raw = raw_text.replace("PATCH:", "").replace("```srt", "").replace("```", "").strip()

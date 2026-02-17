@@ -10,7 +10,7 @@ APP_VERSION = "v2.0.0" # Updated Version
 
 st.set_page_config(page_title=f"Welt VX {APP_VERSION}", page_icon="welt_icon.png", layout="wide")
 
-# --- CUSTOM CSS ---
+# --- CUSTOM CSS (PRESERVED FROM v1.5.0) ---
 def apply_studio_style():
     st.markdown("""
         <style>
@@ -96,12 +96,12 @@ if "form_reset_id" not in st.session_state: st.session_state.form_reset_id = 0
 if "input_mode" not in st.session_state: st.session_state.input_mode = "normal" 
 if "safety_settings" not in st.session_state:
     st.session_state.safety_settings = {"nsfw": False, "gore": False, "profanity": False}
-if "active_video_library" not in st.session_state: st.session_state.active_video_library = [] # New: Store multiple paths
+if "active_video_library" not in st.session_state: st.session_state.active_video_library = [] 
 
-# --- SIDEBAR: CONFIGURATION (REQ #2, #3) ---
+# --- SIDEBAR: CONFIGURATION (New in v2.0) ---
 def setup_sidebar():
     with st.sidebar:
-        st.image("welt_icon.png", width=50) # Assuming you have an icon
+        st.image("welt_icon.png", width=50) 
         st.header("Welt VX Settings")
         
         # Section 1: User Account / API Key
@@ -113,7 +113,7 @@ def setup_sidebar():
             )
             
             final_key = None
-            sel_model = "gemini-1.5-flash" # Default
+            sel_model = "gemini-3.0-flash-preview" # Updated Default
 
             if api_mode == "Use My Own Key (Paid/Private)":
                 user_key_input = st.text_input(
@@ -124,26 +124,29 @@ def setup_sidebar():
                 if user_key_input:
                     final_key = user_key_input
                 
-                # Only show model selection if they bring their own key
+                # UPDATED MODEL SELECTION
                 sel_model = st.selectbox(
                     "Select Model",
-                    ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-3-flash-preview", "gemini-3-pro-preview"],
-                    index=2 # Default to a fast model
+                    [
+                        "gemini-2.5-flash",
+                        "gemini-2.5-pro", 
+                        "gemini-3.0-flash-preview", 
+                        "gemini-3.0-pro-preview"
+                    ],
+                    index=2 # Default to 3.0 Flash Preview
                 )
             else:
-                # Fallback to internal secrets
                 try:
                     final_key = st.secrets["GEMINI_API_KEY"]
                 except:
                     st.error("No Shared Key Found in Secrets.")
                 
-                st.info("Using shared free tier (Gemini 1.5 Flash). Rate limits apply.")
+                st.info("Using shared free tier (Gemini 3.0 Flash Preview).")
 
-        # Section 2: Content Filters (Moved here)
+        # Section 2: Content Filters
         with st.expander("🛡️ Safety & Filters"):
             st.caption("Welt VX uses standard safety filters by default.")
             
-            # The "Self-Attestation" Check
             age_verified = st.checkbox("I confirm I am 18+ and want to view unfiltered content.")
             
             disable_safety = False
@@ -189,7 +192,7 @@ def open_subtitle_window(current_video_path):
                     lang, 
                     sfx, 
                     user_filters=st.session_state.safety_settings,
-                    model_id=selected_model_id # Pass dynamic model
+                    model_id=selected_model_id 
                 )
                 final_srt = weltengine.clean_and_repair_srt(res)
                 with open("subtitles.srt", "w", encoding="utf-8") as f: f.write(final_srt)
@@ -204,7 +207,7 @@ st.subheader("Studio")
 
 MASTER_DEMO_PATH = "master_demo.webm" 
 
-# UPDATED: Multi-File Uploader (REQ #5)
+# UPDATED: Multi-File Uploader
 uploaded_files = st.file_uploader(
     "Upload Video Context", 
     type=["mp4", "mov", "avi", "webm"],
@@ -222,13 +225,11 @@ new_upload_signature = ""
 
 # Handle File Processing
 if uploaded_files:
-    # Create a signature to detect new uploads
     new_upload_signature = "_".join([f.name for f in uploaded_files])
     
     if new_upload_signature != st.session_state.last_video_id:
-        st.session_state.active_video_library = [] # Reset library
+        st.session_state.active_video_library = [] 
         
-        # Save all files
         for idx, u_file in enumerate(uploaded_files):
             temp_name = f"temp_video_{idx}.mp4"
             with open(temp_name, "wb") as f: f.write(u_file.getbuffer())
@@ -242,7 +243,6 @@ elif use_demo:
         st.session_state.active_video_library = [MASTER_DEMO_PATH]
         start_processing = True
 
-# Reset State on New Upload
 if start_processing:
     if os.path.exists("subtitles.srt"): os.remove("subtitles.srt")
     st.session_state.messages = []
@@ -277,7 +277,7 @@ if st.session_state.active_video_library:
         st.video(current_view_path, subtitles=subs, start_time=st.session_state.video_start_time)
 
         with st.container(border=True):
-            c1, c2, c3 = st.columns(3) # Removed options button since it's in sidebar now
+            c1, c2, c3 = st.columns(3) 
             
             with c1:
                 if st.button(":material/subtitles: Subtitles", use_container_width=True):
@@ -286,7 +286,6 @@ if st.session_state.active_video_library:
             with c2:
                 if st.button(":material/segment: Smart Chapters", use_container_width=True):
                     with st.spinner("Analyzing Narrative Arc..."):
-                        # Use the currently Viewed video for chapters
                         st.session_state.chapters = weltengine.generate_smart_chapters(
                             api_key, 
                             current_view_path, 
@@ -307,7 +306,6 @@ if st.session_state.active_video_library:
                 for ts, title in st.session_state.chapters:
                     if st.button(f"{ts} - {title}", key=ts, use_container_width=True):
                         try:
-                            # Safely clean the string and convert only valid numeric parts
                             parts = [int(p.strip()) for p in ts.split(":") if p.strip().isdigit()]
                             
                             if len(parts) == 3: # HH:MM:SS
@@ -335,19 +333,16 @@ if st.session_state.active_video_library:
             
             chat_box = st.container(height=500)
             
-            # --- 1. CHAT RENDER LOOP ---
             if not st.session_state.messages and st.session_state.input_mode == "normal":
                 with chat_box:
                     st.info(f"I am analyzing {len(st.session_state.active_video_library)} video(s) using {selected_model_id}.")
                     
                     sc1, sc2 = st.columns(2)
                     with sc1:
-                        # NEW: Jump to Part (Inline)
                         if st.button(":material/search: Jump to Part", use_container_width=True):
                             st.session_state.input_mode = "jump_to_part"
                             st.rerun()
                     with sc2:
-                        # Safety Scan (Inline)
                         if st.button(":material/security: Safety Scan", use_container_width=True):
                             st.session_state.input_mode = "safety_scan"
                             st.rerun()
@@ -358,7 +353,6 @@ if st.session_state.active_video_library:
                             st.session_state.messages.append({"role": "user", "content": "Summarize the video context."})
                             st.rerun()
                     with sc4:
-                         # Repair Subs (Inline)
                          if st.button(":material/build: Fix Subs", use_container_width=True):
                             st.session_state.input_mode = "repair_subs"
                             st.rerun()
@@ -367,7 +361,6 @@ if st.session_state.active_video_library:
                     for msg in st.session_state.messages:
                         with st.chat_message(msg["role"]): st.markdown(msg["content"])
             
-            # --- 2. DYNAMIC INPUT HANDLER ---
             if st.session_state.input_mode == "safety_scan":
                 scan_query = st.chat_input("What content should I detect? (e.g. Weapons, Brands)", key="scan_input")
                 if scan_query:
@@ -397,7 +390,6 @@ if st.session_state.active_video_library:
                     st.session_state.messages.append({"role": "user", "content": prompt})
                     st.rerun()
 
-            # --- 3. BACKEND TRIGGER ---
             if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
                  with chat_box:
                     with st.chat_message("assistant"):
@@ -408,10 +400,9 @@ if st.session_state.active_video_library:
                             
                             last_user_msg = st.session_state.messages[-1]["content"]
                             
-                            # UPDATED: Pass the entire list of active videos and Model ID
                             response = weltengine.vx_assistant_fix(
                                 api_key, 
-                                st.session_state.active_video_library, # Passes List or String
+                                st.session_state.active_video_library, 
                                 current_srt, 
                                 st.session_state.chapters, 
                                 last_user_msg, 
