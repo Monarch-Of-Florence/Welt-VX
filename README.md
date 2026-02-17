@@ -6,25 +6,30 @@
 ![Gemini](https://img.shields.io/badge/AI-Gemini_3_Flash-orange)
 ![Streamlit](https://img.shields.io/badge/UI-Streamlit_Cinema-red)
 
-**Welt VX** is not just a subtitle tool; it is an **Agentic System** that watches video to understand context. It features a "Matrix Language" detection engine, multimodal sound effect visualization, and a Human-in-the-Loop Repair Assistant.
+**Welt VX** is an Agentic System designed to enable real-time reasoning and accessibility for video content in a context-aware environment. It leverages Gemini 3's multimodal capabilities to generate accurate subtitles, identify important narrative moments, and create smart chapters that speed up navigation. The system features a **Human-in-the-Loop (HITL)** Support Agent that enables semantic seeking, content scanning, and personalized refinement of all generated assets.
 
 ---
 
 ## 🚀 Key Features
 
 ### 1. 🧠 Matrix Language Logic (Context-Aware Translation)
-Unlike standard translators that flatten dialogue, Welt VX identifies the **Matrix Language** (the dominant narrative language) vs. **Embedded Languages**.
+Unlike standard translators that flatten dialogue, Welt VX distinguishes between the **Matrix Language** (the dominant narrative language) and **Embedded Languages**.
 - **Matrix Language:** Rendered as standard text.
 - **Embedded Language:** Automatically tagged and *italicized* to preserve the director's original intent.
 
-### 2. 👁️ Multimodal Vision (SDH)
-Using **Gemini 3 Flash Preview**, the agent "watches" the video pixels to caption visual sound effects that audio-only models miss.
-- *Example:* `[Phone lights up]`, `[Door slams]`, `[Character nods]`.
+### 2. 👁️ Multimodal Reasoning
+Using **Gemini 3 Flash Preview**, the agent "watches" video pixels to caption visual sound effects that audio-only models miss.
+- *Visual Cues:* `[Phone lights up]`, `[Door slams]`, `[Character nods]`.
+- *Ambient Audio:* Translates non-speech audio cues (music, ambience) to enhance accessibility (e.g., `[Rain starts pouring]`).
 
 ### 3. 🤖 VX Assistant (Human-in-the-Loop)
-A specialized **Repair Agent** resides in the sidebar.
+A specialized **Support Agent** resides in the sidebar for real-time, conversational refinement.
+- **Semantic Seek:** "Jump to the scene where the protagonist confronts the antagonist." (The agent identifies the relevant timestamp).
 - **Natural Language Repair:** "Fix the typo at 00:45." (The agent edits the code; no regeneration needed).
-- **Visual Q&A:** "What color is the car?" (The agent analyzes the video frame to answer).
+- **Visual Q&A:** "What is the equipment used by this doctor at 12:59?"
+- **Chapter Editing:** "Split the chapter at 15:30 into two."
+- **Content Scanning:** "Search for all instances of 'Red Car'." (Returns a list of timestamps).
+- **Suggestion Chips:** Context-aware buttons (Seek, Fix, Scan) that auto-fill complex commands, reducing manual typing.
 
 ### 4. 📑 Smart Chapters
 The agent observes scene changes and narrative shifts to automatically generate a clickable, timestamped **Table of Contents**.
@@ -33,13 +38,23 @@ The agent observes scene changes and narrative shifts to automatically generate 
 
 ## 🛠️ Architecture
 
-The project follows a **State-Machine Architecture** built on Streamlit:
+The project follows a **Modular Agentic Architecture** using Gemini 3 Flash Preview as the cognitive engine and a custom Streamlit interface for state management. The core pipeline consists of:
 
-1.  **Ingestion:** Video is uploaded to ephemeral storage (Privacy-First).
-2.  **Observation:** Gemini 3 analyzes audio waveforms + visual frames.
-3.  **Drafting:** The `weltengine.py` generates an SRT file with Matrix Logic.
-4.  **Validation:** Timestamps are validated via the `srt` library.
-5.  **Refinement:** The VX Assistant allows for iterative, conversational edits.
+1.  **Orchestrator:** The workflow brain that manages specialized sub-agents via an **Intent Routing Mechanism**.
+2.  **Multimodal Sub-Agent:** Processes both audio and visual inputs to create accurate, context-aware captions.
+3.  **Navigation Agent:** Analyzes the video to identify key moments and generates smart chapters.
+4.  **Support Agent:** A HITL agent that handles recursive edits, semantic seeking, and content scanning.
+
+### **The Stability Stack**
+* **Validation Layer:** Uses the `srt` library to ensure all generated subtitles are frame-perfect and synchronized.
+* **Parsing Layer:** Converts raw Gemini output into structured formats (JSON/SRT) to prevent UI errors.
+* **Stability Layer:** Implements retry logic and error handling to ensure robustness against API failures.
+
+### **Minimalistic Interface**
+The UI is designed for focus and utility:
+* **Cinema Mode:** The video player occupies the majority of the screen with real-time subtitle overlays.
+* **Control Center:** Interactive controls for generation, settings, and the Support Agent are organized neatly below the player.
+* **Modal Interactions:** Complex tasks (customization, repairs) use modals to keep the main view uncluttered.
 
 ---
 
@@ -47,18 +62,41 @@ The project follows a **State-Machine Architecture** built on Streamlit:
 
 **1. Clone the repository**
 ```bash
-git clone [https://github.com/Monarch-Of-Florence/WeltVX]
+git clone [https://github.com/Monarch-Of-Florence/WeltVX.git](https://github.com/Monarch-Of-Florence/WeltVX.git)
 cd welt-vx
 ```
+
 **2. Install dependencies**
 ```bash
 pip install -r requirements.txt
 ```
-**3. Set up Gemini 3 API Key in .env file**
+
+**3. Set up Gemini API Key**
+- Get your Gemini API key from Google AI Studio
+- Create a `.env` file in the root directory and add your Gemini API key: 
 ```bash
-GEMINI_API_KEY=your_gemini_3_api_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
-**4. Run the Streamlit app**
+
+**4. Run the Application**
 ```bash
-streamlit run app.py
+streamlit run welt.py
 ```
+
+## ⚠️ Important Notes
+
+- **Cloud Limitations:** The live demo hosted on Streamlit Community Cloud is optimized for video files up to **200 MB** due to free-tier RAM constraints. Uploading larger files may cause the app to restart ("Over Capacity").
+- **Local Power:** The underlying configuration allows for uploads up to **500 MB**. For large-scale testing, it is highly recommended to **clone the repository** and run the application locally to bypass these cloud resource constraints.
+- **Privacy:** All uploaded videos are processed in temporary storage and are not permanently saved.
+
+## 📜 License
+
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+---
