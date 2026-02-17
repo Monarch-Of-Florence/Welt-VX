@@ -6,11 +6,10 @@ from google import genai
 from google.genai import types
 from google.genai import errors 
 
-# ⚠️ STRICT CONFIGURATION: DEFAULT MODEL UPDATED
-# User Mandate: Default is now 3.0 Flash Preview.
-DEFAULT_MODEL_ID = "gemini-3.0-flash-preview" 
+# ⚠️ STRICT CONFIGURATION: CORRECT MODEL ID
+DEFAULT_MODEL_ID = "gemini-3-flash-preview" 
 
-# --- EXPONENTIAL BACKOFF DECORATOR (New in v2.0) ---
+# --- EXPONENTIAL BACKOFF DECORATOR ---
 def exponential_backoff(max_retries=5, base_delay=1, max_delay=60):
     """
     Decorator for exponential backoff with jitter to handle API Rate Limits.
@@ -24,10 +23,9 @@ def exponential_backoff(max_retries=5, base_delay=1, max_delay=60):
                     return func(*args, **kwargs)
                 
                 except errors.ClientError as e:
-                    # Check if it is a 429 (Resource Exhausted)
                     if e.code == 429 or "429" in str(e):
                         wait_time = min(max_delay, (base_delay * 2 ** retries))
-                        wait_time += random.uniform(0, 1) # Add Jitter
+                        wait_time += random.uniform(0, 1)
                         print(f"⚠️ API Busy (429). Retrying in {wait_time:.2f}s...")
                         time.sleep(wait_time)
                         retries += 1
@@ -35,7 +33,6 @@ def exponential_backoff(max_retries=5, base_delay=1, max_delay=60):
                         raise e 
                         
                 except errors.ServerError as e:
-                    # 503 Service Unavailable / Overloaded
                     wait_time = min(max_delay, (base_delay * 2 ** retries))
                     print(f"⚠️ Server Error (5xx). Retrying in {wait_time:.2f}s...")
                     time.sleep(wait_time)
@@ -67,7 +64,7 @@ def _wait_for_processing(client, myfile):
         myfile = client.files.get(name=myfile.name)
     raise Exception("Video processing timed out (5-minute limit reached).")
 
-# --- SAFETY CONFIGURATOR ---
+# --- SAFETY CONFIGURATOR (Preserved v1.5.0 Logic) ---
 def _configure_safety(user_filters):
     if not user_filters: user_filters = {}
 
@@ -104,7 +101,7 @@ def _configure_safety(user_filters):
     
     return final_safety_conf, "\n".join(prompt_rules)
 
-# --- UPDATED: Subtitle Gen ---
+# --- SUBTITLE GENERATION ---
 @exponential_backoff()
 def generate_subtitles_backend(api_key, video_path, target_language="English", include_sfx=False, user_filters=None, model_id=DEFAULT_MODEL_ID):
     client = genai.Client(api_key=api_key)
@@ -181,7 +178,7 @@ def generate_subtitles_backend(api_key, video_path, target_language="English", i
     return f"Error: Content blocked by Safety Filters. Reason: {reason}"
 
 
-# --- UPDATED: Chapters ---
+# --- CHAPTERS GENERATION ---
 @exponential_backoff()
 def generate_smart_chapters(api_key, video_path, model_id=DEFAULT_MODEL_ID):
     client = genai.Client(api_key=api_key)
@@ -217,7 +214,7 @@ def generate_smart_chapters(api_key, video_path, model_id=DEFAULT_MODEL_ID):
                     chapters.append((parts[0].strip(), parts[1].strip()))
     return chapters
 
-# --- UPDATED: VX Assistant (Handles Multiple Files) ---
+# --- VX ASSISTANT (Multi-File) ---
 @exponential_backoff()
 def vx_assistant_fix(api_key, video_input, current_srt, current_chapters, user_instruction, user_filters=None, model_id=DEFAULT_MODEL_ID):
     client = genai.Client(api_key=api_key)

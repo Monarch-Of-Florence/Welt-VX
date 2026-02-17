@@ -6,11 +6,11 @@ import weltengine
 
 # --- SETUP ---
 load_dotenv()
-APP_VERSION = "v2.0.0" # Updated Version
+APP_VERSION = "v2.0.1" 
 
 st.set_page_config(page_title=f"Welt VX {APP_VERSION}", page_icon="welt_icon.png", layout="wide")
 
-# --- CUSTOM CSS (PRESERVED FROM v1.5.0) ---
+# --- CUSTOM CSS (Strictly Preserved) ---
 def apply_studio_style():
     st.markdown("""
         <style>
@@ -98,14 +98,14 @@ if "safety_settings" not in st.session_state:
     st.session_state.safety_settings = {"nsfw": False, "gore": False, "profanity": False}
 if "active_video_library" not in st.session_state: st.session_state.active_video_library = [] 
 
-# --- SIDEBAR: CONFIGURATION (New in v2.0) ---
+# --- SIDEBAR: CONFIGURATION (Minimalist & Filters Restored) ---
 def setup_sidebar():
     with st.sidebar:
         st.image("welt_icon.png", width=50) 
         st.header("Welt VX Settings")
         
-        # Section 1: User Account / API Key
-        with st.expander("👤 Account & API", expanded=True):
+        # Section 1: User Account
+        with st.expander("Account & API", expanded=True):
             api_mode = st.radio(
                 "API Source",
                 ["Use Free Tier (Shared)", "Use My Own Key (Paid/Private)"],
@@ -113,7 +113,7 @@ def setup_sidebar():
             )
             
             final_key = None
-            sel_model = "gemini-3.0-flash-preview" # Updated Default
+            sel_model = "gemini-3-flash-preview" # Default
 
             if api_mode == "Use My Own Key (Paid/Private)":
                 user_key_input = st.text_input(
@@ -124,16 +124,15 @@ def setup_sidebar():
                 if user_key_input:
                     final_key = user_key_input
                 
-                # UPDATED MODEL SELECTION
                 sel_model = st.selectbox(
                     "Select Model",
                     [
                         "gemini-2.5-flash",
                         "gemini-2.5-pro", 
-                        "gemini-3.0-flash-preview", 
-                        "gemini-3.0-pro-preview"
+                        "gemini-3-flash-preview", 
+                        "gemini-3-pro-preview"
                     ],
-                    index=2 # Default to 3.0 Flash Preview
+                    index=2 # Default to 3 Flash Preview
                 )
             else:
                 try:
@@ -141,24 +140,24 @@ def setup_sidebar():
                 except:
                     st.error("No Shared Key Found in Secrets.")
                 
-                st.info("Using shared free tier (Gemini 3.0 Flash Preview).")
+                st.info("Using shared free tier (Gemini 3 Flash Preview).")
 
-        # Section 2: Content Filters
-        with st.expander("🛡️ Safety & Filters"):
+        # Section 2: Content Filters (All 3 Restored)
+        with st.expander("Safety & Filters"):
             st.caption("Welt VX uses standard safety filters by default.")
             
+            # The "Self-Attestation" Check
             age_verified = st.checkbox("I confirm I am 18+ and want to view unfiltered content.")
             
-            disable_safety = False
             if age_verified:
-                disable_safety = st.toggle("Disable NSFW Safety Filters", value=False)
-                if disable_safety:
-                    st.warning("⚠️ Filters Disabled. Proceed at your own risk.")
-                    st.session_state.safety_settings["nsfw"] = True
-                else:
-                    st.session_state.safety_settings["nsfw"] = False
+                st.session_state.safety_settings["nsfw"] = st.checkbox("Allow NSFW (18+)", value=st.session_state.safety_settings["nsfw"])
+                st.session_state.safety_settings["gore"] = st.checkbox("Allow Gore/Violence", value=st.session_state.safety_settings["gore"])
+                st.session_state.safety_settings["profanity"] = st.checkbox("Allow Profanity", value=st.session_state.safety_settings["profanity"])
             else:
+                # Reset if unchecked
                 st.session_state.safety_settings["nsfw"] = False
+                st.session_state.safety_settings["gore"] = False
+                st.session_state.safety_settings["profanity"] = False
 
         return final_key, sel_model
 
@@ -207,7 +206,6 @@ st.subheader("Studio")
 
 MASTER_DEMO_PATH = "master_demo.webm" 
 
-# UPDATED: Multi-File Uploader
 uploaded_files = st.file_uploader(
     "Upload Video Context", 
     type=["mp4", "mov", "avi", "webm"],
@@ -255,7 +253,6 @@ if start_processing:
 # --- LAYOUT ---
 if st.session_state.active_video_library:
     
-    # NEW: Selector if multiple videos exist
     current_view_path = st.session_state.active_video_library[0]
     if len(st.session_state.active_video_library) > 1:
         st.info(f"📂 Relative Context Active: {len(st.session_state.active_video_library)} Videos Loaded.")
@@ -349,8 +346,9 @@ if st.session_state.active_video_library:
                     
                     sc3, sc4 = st.columns(2)
                     with sc3:
+                         # RESTORED PROMPT: "Summarize the video"
                          if st.button("Video Summary", use_container_width=True):
-                            st.session_state.messages.append({"role": "user", "content": "Summarize the video context."})
+                            st.session_state.messages.append({"role": "user", "content": "Summarize the video"})
                             st.rerun()
                     with sc4:
                          if st.button(":material/build: Fix Subs", use_container_width=True):
