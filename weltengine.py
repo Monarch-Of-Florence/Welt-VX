@@ -6,7 +6,6 @@ from google import genai
 from google.genai import types
 from google.genai import errors 
 
-# --- NEW IMPORTS FOR v3.0.0 ---
 import json
 from google.cloud import firestore
 import streamlit as st
@@ -206,7 +205,6 @@ def generate_subtitles_backend(api_key, video_path, target_language="English", i
         
         # --- INFINITY PROTOCOL (Added in v3.0.0) ---
         if full_text:
-            # Check if output ends abruptly without a proper SRT blank line or timestamp
             if not full_text.strip().endswith("\n\n") and not "-->" in full_text.strip().split("\n")[-1]:
                 print("⚠️ Output truncated. Triggering Infinity Protocol...")
                 cont_prompt = "You stopped mid-sentence. Continue generating the SRT exactly from where you left off. Do not repeat the previous headers."
@@ -232,7 +230,6 @@ def generate_subtitles_backend(api_key, video_path, target_language="English", i
     
     print(f"⛔ DEBUG: Blocked! Finish Reason: {reason}")
     return f"Error: Content blocked by Safety Filters. Reason: {reason}"
-
 
 # --- CHAPTERS GENERATION ---
 @exponential_backoff()
@@ -294,13 +291,13 @@ def vx_assistant_fix(api_key, video_input, current_srt, current_chapters, user_i
     safety_conf, safety_prompt_instructions = _configure_safety(user_filters)
 
     system_prompt = f"""
-    You are VX Assistant (VX Orchestrator), a Multimodal Video Expert managing a task force of 7 AI Specialists.
+    You are VX Orchestrator, a Multimodal Video Expert managing a task force of 7 AI Specialists.
     
     YOUR SAFETY PROTOCOLS:
     {safety_prompt_instructions}
     
     YOUR SPECIALISTS (v3.0.0 Architecture):
-    1. **THE DETECTIVE** (Forensics): Finds objects, people, scans for safety.
+    1. **THE DETECTIVE** (Forensics & Search): Finds specific objects, people, or scans for safety.
     2. **THE LIBRARIAN** (Organizer): Renames videos based on content.
     3. **THE NAVIGATOR** (Seeker): Jumps to specific timestamps.
     4. **THE MECHANIC** (Fixer): Repairs subtitles or errors.
@@ -327,8 +324,8 @@ def vx_assistant_fix(api_key, video_input, current_srt, current_chapters, user_i
     4. **NAVIGATION (The Navigator)**:
        - Output: "SEEK:MM:SS" (Note: If multiple videos, specify which video, e.g., "SEEK:Video 1:MM:SS")
 
-    5. **CONTENT SCAN (The Detective)**:
-       - Output: "SCAN_RESULT: [Your analysis, e.g., (NAME) FOUND IN VIDEO (X) TIMES: [TIMESTAMPS]]".
+    5. **SEARCH & SCAN (The Detective)**:
+       - Output: "SCAN_RESULT: [Your analysis, e.g., (NAME/OBJECT) FOUND IN VIDEO (X) TIMES: [TIMESTAMPS]]".
 
     6. **RENAME VIDEOS (The Librarian)** (Added in v3.0.0):
        - Output: "RENAME:" followed by a JSON list of strings representing the new names for the videos.

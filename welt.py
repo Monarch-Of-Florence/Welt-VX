@@ -130,7 +130,7 @@ def apply_studio_style(theme="Dark Mode"):
 if "messages" not in st.session_state: st.session_state.messages = []
 if "chapters" not in st.session_state: st.session_state.chapters = []
 if "video_start_time" not in st.session_state: st.session_state.video_start_time = 0
-if "show_assistant" not in st.session_state: st.session_state.show_assistant = False 
+if "show_orchestrator" not in st.session_state: st.session_state.show_orchestrator = False 
 if "last_video_id" not in st.session_state: st.session_state.last_video_id = ""
 if "form_reset_id" not in st.session_state: st.session_state.form_reset_id = 0 
 if "input_mode" not in st.session_state: st.session_state.input_mode = "normal" 
@@ -142,9 +142,6 @@ if "active_video_library" not in st.session_state: st.session_state.active_video
 if "is_processing" not in st.session_state: st.session_state.is_processing = False
 if "theme_mode" not in st.session_state: st.session_state.theme_mode = "Dark Mode"
 if "video_display_names" not in st.session_state: st.session_state.video_display_names = {}
-
-# Apply dynamic styling based on state
-apply_studio_style(st.session_state.theme_mode)
 
 # --- SIDEBAR: CONFIGURATION (Minimalist & Filters Restored) ---
 def setup_sidebar():
@@ -220,8 +217,11 @@ def setup_sidebar():
 
         return final_key, sel_model
 
-# Initialize Sidebar
+# Initialize Sidebar FIRST so state updates before styles apply
 api_key, selected_model_id = setup_sidebar()
+
+# Apply dynamic styling based on the updated state instantly
+apply_studio_style(st.session_state.theme_mode)
 
 if not api_key:
     st.warning("Please configure an API Key in the Sidebar.")
@@ -342,7 +342,7 @@ if st.session_state.active_video_library:
         )
         current_view_path = st.session_state.active_video_library[selected_idx]
 
-    if st.session_state.show_assistant:
+    if st.session_state.show_orchestrator:
         col_video, col_assist = st.columns([2.5, 1.2]) 
     else:
         col_video, col_assist = st.columns([1, 0.001]) 
@@ -372,10 +372,10 @@ if st.session_state.active_video_library:
                     st.rerun()
             
             with c3:
-                label = ":material/close: Close Assistant" if st.session_state.show_assistant else ":material/smart_toy: VX Assistant"
-                type_color = "secondary" if st.session_state.show_assistant else "primary"
+                label = ":material/close: Close Orchestrator" if st.session_state.show_orchestrator else ":material/smart_toy: VX Orchestrator"
+                type_color = "secondary" if st.session_state.show_orchestrator else "primary"
                 if st.button(label, type=type_color, use_container_width=True, disabled=st.session_state.is_processing):
-                    st.session_state.show_assistant = not st.session_state.show_assistant
+                    st.session_state.show_orchestrator = not st.session_state.show_orchestrator
                     st.rerun()
 
         if st.session_state.chapters:
@@ -398,11 +398,11 @@ if st.session_state.active_video_library:
                         except (ValueError, IndexError):
                             st.toast(f"⚠️ Formatting error in timestamp: {ts}", icon="⚠️")
 
-    # --- RIGHT COLUMN (VX Assistant) ---
-    if st.session_state.show_assistant:
+    # --- RIGHT COLUMN (VX Orchestrator) ---
+    if st.session_state.show_orchestrator:
         with col_assist:
             h1, h2 = st.columns([3, 1])
-            with h1: st.markdown("#### Assistant")
+            with h1: st.markdown("#### Orchestrator")
             with h2: 
                 if st.button(":material/delete:", help="Clear Chat", disabled=st.session_state.is_processing):
                     st.session_state.messages = []
@@ -421,8 +421,8 @@ if st.session_state.active_video_library:
                             st.session_state.input_mode = "jump_to_part"
                             st.rerun()
                     with sc2:
-                        if st.button(":material/security: Safety Scan", use_container_width=True, disabled=st.session_state.is_processing):
-                            st.session_state.input_mode = "safety_scan"
+                        if st.button(":material/search: Scan Content", use_container_width=True, disabled=st.session_state.is_processing):
+                            st.session_state.input_mode = "scan_content"
                             st.rerun()
                     
                     sc3, sc4 = st.columns(2)
@@ -445,10 +445,10 @@ if st.session_state.active_video_library:
                     for msg in st.session_state.messages:
                         with st.chat_message(msg["role"]): st.markdown(msg["content"])
             
-            if st.session_state.input_mode == "safety_scan":
-                scan_query = st.chat_input("What content should I detect? (e.g. Weapons, Brands)", key="scan_input", disabled=st.session_state.is_processing)
+            if st.session_state.input_mode == "scan_content":
+                scan_query = st.chat_input("What or who should I find? (e.g. Weapons, Brands, John)", key="scan_input", disabled=st.session_state.is_processing)
                 if scan_query:
-                    full_prompt = f"Scan the video specifically for: {scan_query}. Provide timestamps if found."
+                    full_prompt = f"Search and scan the video specifically for: {scan_query}. Provide timestamps if found."
                     st.session_state.messages.append({"role": "user", "content": full_prompt})
                     st.session_state.input_mode = "normal" 
                     st.rerun()
