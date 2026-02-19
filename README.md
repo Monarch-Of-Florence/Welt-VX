@@ -1,7 +1,7 @@
 # Welt VX 3.0.0
 **Redefining Viewer Experience with Relative Video Intelligence.**
 
-Built for the **Google Gemini API Developer Competition**, Welt VX is an agentic AI video intelligence environment. It transcends standard media players by treating video files as dynamic, interactive data sources. Powered by Gemini 3 Flash/Pro, Welt VX allows users to analyze, repair, and navigate multiple videos simultaneously through a natural language interface.
+Welt VX is an agentic AI video intelligence environment. It transcends standard media players by treating video files as dynamic, interactive data sources. Powered by Gemini 3 Flash/Pro, Welt VX allows users to analyze, repair, and navigate multiple videos simultaneously through a natural language interface.
 
 Developed by **Akshansh Hardaha (Antares)**.
 
