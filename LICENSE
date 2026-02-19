@@ -1,16 +1,28 @@
-MIT License
+Copyright (c) 2026 Akshansh Hardaha (Antares). All Rights Reserved.
 
-Copyright (c) 2026 Kansokusha
+PROPRIETARY AND CONFIDENTIAL
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This source code and accompanying documentation (the "Software") are provided 
+exclusively for evaluation purposes during the Google Gemini API Developer Competition 
+(the "Hackathon").
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. GRANT OF LICENSE:
+Permission is hereby granted, free of charge, to the official judges and 
+reviewers of the Hackathon to view, download, and execute the Software strictly 
+for the purpose of evaluation and scoring.
+
+2. RESTRICTIONS:
+You may not:
+- Copy, modify, or distribute this Software or any portion of it.
+- Fork, clone, or publish the source code to any public or alternative repository.
+- Use this Software for any commercial, non-commercial, or personal purpose 
+  outside the scope of the Hackathon evaluation.
+- Reverse engineer, decompile, or extract any part of the architecture or logic.
+
+3. OWNERSHIP:
+All title, ownership rights, and intellectual property rights in and to the 
+Software and its underlying architecture (Welt VX) shall remain strictly with 
+Akshansh Hardaha (Antares).
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,

@@ -6,8 +6,47 @@ from google import genai
 from google.genai import types
 from google.genai import errors 
 
+# --- NEW IMPORTS FOR v3.0.0 ---
+import json
+from google.cloud import firestore
+import streamlit as st
+
 # ⚠️ STRICT CONFIGURATION: CORRECT MODEL ID
 DEFAULT_MODEL_ID = "gemini-3-flash-preview" 
+
+# --- DATABASE CONNECTION (FIRESTORE) (Added in v3.0.0) ---
+def get_db():
+    """
+    Safely connects to Firestore using Streamlit secrets.
+    Returns None if connection fails (Graceful Degradation).
+    """
+    try:
+        key_dict = dict(st.secrets["gcp_service_account"])
+        db = firestore.Client.from_service_account_info(key_dict)
+        return db
+    except Exception as e:
+        print(f"⚠️ Database Error (Running Stateless): {e}")
+        return None
+
+# --- THE FEEDBACK ANALYST (LEARNING LOOP) (Added in v3.0.0) ---
+def log_feedback(original_output, user_correction, agent_type):
+    """
+    Saves user corrections to Firestore to improve future accuracy.
+    """
+    db = get_db()
+    if db:
+        try:
+            doc_ref = db.collection("feedback_logs").document()
+            doc_ref.set({
+                "agent": agent_type,
+                "original_output": original_output,
+                "user_correction": user_correction,
+                "timestamp": firestore.SERVER_TIMESTAMP,
+                "status": "pending_review"
+            })
+            print("✅ Feedback Logged to Firestore.")
+        except Exception as e:
+            print(f"⚠️ Failed to log feedback: {e}")
 
 # --- EXPONENTIAL BACKOFF DECORATOR ---
 def exponential_backoff(max_retries=5, base_delay=1, max_delay=60):
@@ -164,7 +203,24 @@ def generate_subtitles_backend(api_key, video_path, target_language="English", i
             if hasattr(part, 'text') and part.text:
                 text_parts.append(part.text)
         full_text = "".join(text_parts)
+        
+        # --- INFINITY PROTOCOL (Added in v3.0.0) ---
         if full_text:
+            # Check if output ends abruptly without a proper SRT blank line or timestamp
+            if not full_text.strip().endswith("\n\n") and not "-->" in full_text.strip().split("\n")[-1]:
+                print("⚠️ Output truncated. Triggering Infinity Protocol...")
+                cont_prompt = "You stopped mid-sentence. Continue generating the SRT exactly from where you left off. Do not repeat the previous headers."
+                try:
+                    cont_response = client.models.generate_content(
+                        model=model_id, 
+                        contents=[myfile, full_text, cont_prompt],
+                        config={"system_instruction": system_prompt, "temperature": 0.2, "safety_settings": safety_conf}
+                    )
+                    if cont_response.text:
+                        full_text += "\n" + cont_response.text
+                        print("✅ Infinity Protocol continuation successful.")
+                except Exception as e:
+                    print(f"⚠️ Infinity Protocol continuation failed: {e}")
             return full_text
     
     if response.text:
@@ -238,11 +294,20 @@ def vx_assistant_fix(api_key, video_input, current_srt, current_chapters, user_i
     safety_conf, safety_prompt_instructions = _configure_safety(user_filters)
 
     system_prompt = f"""
-    You are VX Assistant, a Multimodal Video Expert.
+    You are VX Assistant (VX Orchestrator), a Multimodal Video Expert managing a task force of 7 AI Specialists.
     
     YOUR SAFETY PROTOCOLS:
     {safety_prompt_instructions}
     
+    YOUR SPECIALISTS (v3.0.0 Architecture):
+    1. **THE DETECTIVE** (Forensics): Finds objects, people, scans for safety.
+    2. **THE LIBRARIAN** (Organizer): Renames videos based on content.
+    3. **THE NAVIGATOR** (Seeker): Jumps to specific timestamps.
+    4. **THE MECHANIC** (Fixer): Repairs subtitles or errors.
+    5. **THE GUIDE** (Analyst): Answers general questions or summarizes.
+    6. **THE SCRIBE** (Subtitles): Handles full transcriptions.
+    7. **THE ARCHITECT** (Chapters): Handles timeline segmentation.
+
     TASK: Determine User Intent and Output ONE of these formats.
     
     SPECIAL INSTRUCTION FOR MULTIPLE VIDEOS:
@@ -250,20 +315,23 @@ def vx_assistant_fix(api_key, video_input, current_srt, current_chapters, user_i
     You must compare, contrast, or find chronological connections between the videos provided.
     
     OUTPUT FORMATS:
-    1. **EDIT SUBTITLES** (Only valid for Single Video Mode):
+    1. **EDIT SUBTITLES (The Mechanic)** (Only valid for Single Video Mode):
        - Output: "PATCH:" followed by the full corrected SRT block.
        
-    2. **EDIT CHAPTERS** (Only valid for Single Video Mode):
+    2. **EDIT CHAPTERS (The Architect)** (Only valid for Single Video Mode):
        - Output: "CHAPTERS:" followed by the new list.
        
-    3. **QUESTION**: General Q&A or Cross-Context Reasoning.
+    3. **QUESTION (The Guide)**: General Q&A or Cross-Context Reasoning.
        - Output: "ANSWER:" followed by your helpful response.
 
-    4. **NAVIGATION**:
+    4. **NAVIGATION (The Navigator)**:
        - Output: "SEEK:MM:SS" (Note: If multiple videos, specify which video, e.g., "SEEK:Video 1:MM:SS")
 
-    5. **CONTENT SCAN**:
-       - Output: "(NAME) FOUND IN VIDEO (X) TIMES: [TIMESTAMPS]".
+    5. **CONTENT SCAN (The Detective)**:
+       - Output: "SCAN_RESULT: [Your analysis, e.g., (NAME) FOUND IN VIDEO (X) TIMES: [TIMESTAMPS]]".
+
+    6. **RENAME VIDEOS (The Librarian)** (Added in v3.0.0):
+       - Output: "RENAME:" followed by a JSON list of strings representing the new names for the videos.
     """
     
     srt_ctx = current_srt if current_srt else "(No subtitles)"
