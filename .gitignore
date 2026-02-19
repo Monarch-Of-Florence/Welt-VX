@@ -215,3 +215,4 @@ __pycache__/
 *.pyc
 .streamlit/
 /greek_waiter.mp4
+secrets.toml
